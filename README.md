@@ -13,7 +13,7 @@ A `CREATE3` factory offers the best solution: the address of the deployed contra
 
 ## Deployments
 
-`CREATE3Factory` can be deployed to the following supported networks (see [`deployments/`](./deployments) for deployed addresses):
+`CREATE3Factory` has been deployed to `0xD252d074EEe65b64433a5a6f30Ab67569362E7e0` on the following networks (see [`deployments/`](./deployments) for full deployment details):
 
 - Ethereum Mainnet
 - Ethereum Sepolia Testnet
@@ -22,7 +22,7 @@ A `CREATE3` factory offers the best solution: the address of the deployed contra
 - Optimism Mainnet
 - Optimism Sepolia Testnet
 
-Every network will have the factory at the exact same address, because the address is a
+Every network has the factory at the exact same address, because the address is a
 deterministic function of the salt (`buildeross.create3factory.v1`) and the factory's bytecode,
 not of who deploys it — see [Deploying to a new chain](#deploying-to-a-new-chain) below.
 
