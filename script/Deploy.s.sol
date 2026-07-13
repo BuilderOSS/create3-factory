@@ -6,7 +6,7 @@ import "forge-std/Script.sol";
 import {CREATE3Factory} from "../src/CREATE3Factory.sol";
 
 contract Deploy is Script {
-    string public constant _SALT = "yieldnest.create3factory.v1";
+    string public constant _SALT = "buildeross.create3factory.v1";
     bytes32 salt = keccak256(bytes(_SALT));
     CREATE3Factory factory;
 
