@@ -13,25 +13,22 @@ A `CREATE3` factory offers the best solution: the address of the deployed contra
 
 ## Deployments
 
-`CREATE3Factory` has been deployed to `0x9fBB3DF7C40Da2e5A0dE984fFE2CCB7C47cd0ABf` on the following networks:
+`CREATE3Factory` has been deployed to `0xD252d074EEe65b64433a5a6f30Ab67569362E7e0` on the following networks (see [`deployments/`](./deployments) for full deployment details):
 
 - Ethereum Mainnet
-- Ethereum Goerli Testnet
 - Ethereum Sepolia Testnet
-- Ethereum Holesky Testnet
-- Arbitrum Mainnet
-- Arbitrum Goerli Testnet
-- Avalanche C-Chain Mainnet
-- Fantom Opera Mainnet
-- Optimism Mainnet
-- Polygon Mainnet
-- Gnosis Chain Mainnet
-- BSC Mainnet
 - Base Mainnet
 - Base Sepolia Testnet
-- Blast Mainnet
-- Sanko Mainnet
-- Unichain Mainnet
+- Optimism Mainnet
+- Optimism Sepolia Testnet
+
+Every network has the factory at the exact same address, because the address is a
+deterministic function of the salt (`buildeross.create3factory.v1`) and the factory's bytecode,
+not of who deploys it — see [Deploying to a new chain](#deploying-to-a-new-chain) below.
+
+This is a fork of [zeframlou/create3-factory](https://github.com/zeframlou/create3-factory),
+which deploys its own independent factory at `0x9fBB3DF7C40Da2e5A0dE984fFE2CCB7C47cd0ABf` on a
+separate set of chains. The factories use different salts and have unrelated addresses.
 
 ## Usage
 
@@ -66,10 +63,56 @@ forge install
 forge build
 ```
 
-### Deployment
+### Deploying to a new chain
 
-Make sure that the network is defined in foundry.toml, then run:
+Anyone can deploy `CREATE3Factory` to one of the supported chains and have it land at the same
+canonical address on every chain — no shared or published private key is required, and you don't
+need permission from the maintainers.
 
-```bash
-./deploy/deploy.sh [network]
-```
+This works because the factory is deployed with a fixed salt (`buildeross.create3factory.v1`)
+via Solidity's salted `new` (CREATE2), which Foundry routes through the
+[canonical deterministic deployment proxy](https://github.com/Arachnid/deterministic-deployment-proxy)
+(`0x4e59b44847b379578588920cA78FbF26c0B4956C`) — already live on most EVM chains. The
+resulting address depends only on `(proxy address, salt, factory bytecode)`, **not** on who
+sends the deployment transaction, so anyone deploying with their own wallet gets the exact
+same address. `CREATE3Factory` itself has no owner or privileged functions (see
+[`src/CREATE3Factory.sol`](./src/CREATE3Factory.sol)), so deploying it doesn't grant the
+deployer any special control over it afterwards.
+
+To deploy to one of the supported networks:
+
+1. Ensure the network's RPC URL is configured in `foundry.toml` under `[rpc_endpoints]` and
+   set the corresponding environment variable in `.env` (e.g., `MAINNET_RPC_URL`,
+   `BASE_SEPOLIA_RPC_URL`, etc.).
+2. Set `PRIVATE_KEY` in `.env` to your own wallet's key, funded with a small amount of the
+   chain's native gas token. This key is only used to pay for your own deployment transaction
+   — it is never shared or published.
+3. Preview the address for free, with no gas spent and no key required:
+   ```bash
+   make predict network=<name>
+   ```
+   Verify the predicted address matches across all networks. If it doesn't, stop — see the
+   caveat below before spending any gas.
+4. Deploy for real:
+   ```bash
+   make deploy-with-key network=<name>
+   ```
+   Where `<name>` is one of: `mainnet`, `sepolia`, `base`, `base_sepolia`, `optimism`, or
+   `optimism_sepolia`.
+
+   This writes `deployments/<name>-<chainid>.json` with the deployment details. Re-running
+   the same command on a chain that's already deployed is a no-op — it detects the existing
+   contract and skips deployment instead of erroring. This target passes `--verify`, which
+   submits source verification to the chain's block explorer using the matching key in `.env`;
+   if you don't have one, drop `--verify` from the `deploy-with-key` recipe in the `Makefile`
+   and verify later.
+
+If the deterministic deployment proxy itself isn't yet live on your target chain (rare, only
+on very new/obscure chains), `forge script --broadcast` deploys it automatically as part of
+the same transaction sequence, at a small one-time extra cost (~0.007 ETH at the proxy's
+fixed price of 100 gwei / 68,131 gas) — no extra steps needed on your part.
+
+**Caveat:** the resulting address is only identical across chains if the contract is compiled
+with the exact `solc` version, `evm_version`, and optimizer settings pinned in
+`foundry.toml`. Building with different settings silently produces a different address.
+Don't override the profile in `foundry.toml` when deploying.

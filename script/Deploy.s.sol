@@ -6,24 +6,33 @@ import "forge-std/Script.sol";
 import {CREATE3Factory} from "../src/CREATE3Factory.sol";
 
 contract Deploy is Script {
-    string public constant _SALT = "yieldnest.create3factory.v1";
+    string public constant _SALT = "buildeross.create3factory.v1";
     bytes32 salt = keccak256(bytes(_SALT));
     CREATE3Factory factory;
 
     function run() public {
-        vm.startBroadcast();
-
+        address predicted = vm.computeCreate2Address(salt, keccak256(type(CREATE3Factory).creationCode));
         console.log("Chain ID: %s", vm.toString(block.chainid));
-        console.log("Sender: %s", msg.sender);
         console.log("Salt: %s", string.concat("keccak256(", _SALT, ")"));
+        console.log("Predicted CREATE3Factory address: %s", predicted);
 
-        factory = new CREATE3Factory{salt: salt}();
-        console.log("CREATE3Factory: %s", address(factory));
+        if (predicted.code.length > 0) {
+            console.log("CREATE3Factory already deployed at predicted address, skipping deployment");
+            factory = CREATE3Factory(predicted);
+        } else {
+            vm.startBroadcast();
+            console.log("Sender: %s", msg.sender);
 
-        vm.stopBroadcast();
+            factory = new CREATE3Factory{salt: salt}();
 
-        saveDeployment();
-        console.log("Saved to: %s", getDeploymentFile());
+            vm.stopBroadcast();
+
+            require(address(factory) == predicted, "CREATE3Factory: deployed address does not match prediction");
+            console.log("CREATE3Factory: %s", address(factory));
+
+            saveDeployment();
+            console.log("Saved to: %s", getDeploymentFile());
+        }
     }
 
     function getDeploymentFile() internal view virtual returns (string memory) {
