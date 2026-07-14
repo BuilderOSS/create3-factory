@@ -29,10 +29,10 @@ contract Deploy is Script {
 
             require(address(factory) == predicted, "CREATE3Factory: deployed address does not match prediction");
             console.log("CREATE3Factory: %s", address(factory));
-        }
 
-        saveDeployment();
-        console.log("Saved to: %s", getDeploymentFile());
+            saveDeployment();
+            console.log("Saved to: %s", getDeploymentFile());
+        }
     }
 
     function getDeploymentFile() internal view virtual returns (string memory) {

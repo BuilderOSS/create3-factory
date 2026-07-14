@@ -2,7 +2,6 @@
 network ?= holesky
 deployerAccountName := $(shell grep '^DEPLOYER_ACCOUNT_NAME=' .env | cut -d '=' -f2)
 deployerAddress := $(shell grep '^DEPLOYER_ADDRESS=' .env | cut -d '=' -f2)
-privateKey := $(shell grep '^PRIVATE_KEY=' .env | cut -d '=' -f2)
 export NETWORK=${network}
 
 # Default target
@@ -56,8 +55,9 @@ deploy:
 .PHONY: deploy-with-key
 deploy-with-key:
 	@if [ -z "${network}" ]; then echo "Error: network is required"; exit 1; fi
-	@if [ -z "${privateKey}" ]; then echo "Error: PRIVATE_KEY is required in .env"; exit 1; fi
-	forge script Deploy --rpc-url ${network} --private-key ${privateKey} --broadcast --verify
+	@set -a && . ./.env && set +a && \
+	if [ -z "$$PRIVATE_KEY" ]; then echo "Error: PRIVATE_KEY is required in .env"; exit 1; fi && \
+	forge script Deploy --rpc-url ${network} --private-key "$$PRIVATE_KEY" --broadcast --verify
 
 # make predict network=holesky
 # Simulates the deployment without broadcasting or spending gas, so anyone can
