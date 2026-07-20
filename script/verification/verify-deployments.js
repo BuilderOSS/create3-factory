@@ -1,19 +1,89 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const https = require('https');
+const http = require('http');
 const dotenv = require('dotenv');
 
 // Load environment variables
 dotenv.config();
 
-// Helper to execute curl command and get bytecode
+// Input validation helpers
+function isValidRpcUrl(url) {
+    try {
+        const parsed = new URL(url);
+        // Only allow http/https protocols
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (error) {
+        return false;
+    }
+}
+
+function isValidEthereumAddress(address) {
+    // Ethereum address: 0x followed by 40 hexadecimal characters
+    return /^0x[0-9a-fA-F]{40}$/.test(address);
+}
+
+// Helper to make JSON-RPC request without shell commands
 async function getBytecode(rpc, address) {
-    const cmd = `curl -s --location ${rpc} \
-        --header 'Content-Type: application/json' \
-        --data '{"method":"eth_getCode", "params":["${address}","latest"], "id":1, "jsonrpc":"2.0"}' \
-        | jq -r .result`;
-    
-    return execSync(cmd).toString().trim();
+    // Validate inputs to prevent injection
+    if (!isValidRpcUrl(rpc)) {
+        throw new Error(`Invalid RPC URL: ${rpc}`);
+    }
+
+    if (!isValidEthereumAddress(address)) {
+        throw new Error(`Invalid Ethereum address: ${address}`);
+    }
+
+    const rpcUrl = new URL(rpc);
+    const protocol = rpcUrl.protocol === 'https:' ? https : http;
+
+    const postData = JSON.stringify({
+        method: 'eth_getCode',
+        params: [address, 'latest'],
+        id: 1,
+        jsonrpc: '2.0'
+    });
+
+    const options = {
+        hostname: rpcUrl.hostname,
+        port: rpcUrl.port || (rpcUrl.protocol === 'https:' ? 443 : 80),
+        path: rpcUrl.pathname + rpcUrl.search,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postData)
+        }
+    };
+
+    return new Promise((resolve, reject) => {
+        const req = protocol.request(options, (res) => {
+            let data = '';
+
+            res.on('data', (chunk) => {
+                data += chunk;
+            });
+
+            res.on('end', () => {
+                try {
+                    const response = JSON.parse(data);
+                    if (response.error) {
+                        reject(new Error(`RPC error: ${JSON.stringify(response.error)}`));
+                    } else {
+                        resolve(response.result || '0x');
+                    }
+                } catch (error) {
+                    reject(new Error(`Failed to parse JSON response: ${error.message}`));
+                }
+            });
+        });
+
+        req.on('error', (error) => {
+            reject(new Error(`HTTP request failed: ${error.message}`));
+        });
+
+        req.write(postData);
+        req.end();
+    });
 }
 
 // Helper to get bytecode from compiled contract JSON

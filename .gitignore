@@ -9,4 +9,7 @@ out/
 /broadcast
 
 # Dotenv file
-.env
+.env  
+
+# Ignores node_modules
+node_modules/
